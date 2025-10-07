@@ -13,6 +13,7 @@ model.fc = torch.nn.Linear(model.fc.in_features, 3)
 model.load_state_dict(torch.load("models/resnet18_dummy.pth", map_location='cpu'))
 model.eval()
 
+# Image preprocessing
 transform = transforms.Compose([
     transforms.Resize((224, 224)),
     transforms.ToTensor()
@@ -31,6 +32,7 @@ if product_id and product_img:
     product_path = f"products/{product_id}/image.jpg"
     Image.open(product_img).save(product_path)
     st.success(f"✅ Product image saved for ID: {product_id}")
+    st.image(product_path, caption="🧥 Uploaded Product Image")
 
     # Generate QR
     qr = qrcode.make(product_id)
@@ -45,10 +47,11 @@ return_img = st.file_uploader("Upload Return Image", type=["jpg", "jpeg", "png"]
 verify_id = st.text_input("Scan or Enter QR Code (Product ID)", placeholder="e.g. shirt123", key="verify")
 
 if return_img and verify_id:
-    return_path = f"returns/{verify_id}_return.jpg"
     os.makedirs("returns", exist_ok=True)
+    return_path = f"returns/{verify_id}_return.jpg"
     Image.open(return_img).save(return_path)
     st.success(f"📤 Return image saved for ID: {verify_id}")
+    st.image(return_path, caption="📸 Uploaded Return Image")
 
     # Compare
     original_path = f"products/{verify_id}/image.jpg"
@@ -62,6 +65,10 @@ if return_img and verify_id:
         original = get_embedding(original_path)
         returned = get_embedding(return_path)
         similarity = cosine_similarity(original, returned)[0][0]
+
+        col1, col2 = st.columns(2)
+        col1.image(original_path, caption="🧥 Original Product Image")
+        col2.image(return_path, caption="📸 Return Image")
 
         st.write(f"🧮 Similarity Score: `{similarity:.2f}`")
         if similarity > 0.8:
