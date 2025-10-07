@@ -1,13 +1,14 @@
 import streamlit as st
 import torch
 import torchvision.transforms as transforms
+from torchvision import models
 from PIL import Image
 import os
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 
-# Load model
-model = torch.hub.load('pytorch/vision:v0.10.0', 'resnet18', pretrained=False)
+# Load model locally (no GitHub calls)
+model = models.resnet18()
 model.fc = torch.nn.Linear(model.fc.in_features, 3)
 model.load_state_dict(torch.load("models/resnet18_dummy.pth", map_location=torch.device('cpu')))
 model.eval()
@@ -51,3 +52,7 @@ if uploaded_file and product_id:
             st.error("❌ Return Rejected: Product does not match.")
     else:
         st.warning("⚠️ Original product image not found.")
+elif product_id and not uploaded_file:
+    st.info("📌 Please upload a return image to verify.")
+elif uploaded_file and not product_id:
+    st.info("📌 Please enter a product ID to proceed.")
