@@ -1,92 +1,53 @@
 import streamlit as st
-from PIL import Image
 import torch
 import torchvision.transforms as transforms
-from torchvision import models
-from sklearn.metrics.pairwise import cosine_similarity
+from PIL import Image
 import os
-from streamlit_qr_code_scanner import qr_code_scanner
-from datetime import datetime
-import csv
-
-st.set_page_config(page_title="Cloth Return Verifier", layout="centered")
-st.title("🧵 Cloth Return Verifier")
-
-# Scan QR code to get product ID
-st.subheader("📷 Scan Product QR Code")
-qr_result = qr_code_scanner(key="qr")
-
-if qr_result:
-    product_id = qr_result
-    st.success(f"✅ Scanned Product ID: {product_id}")
-else:
-    st.info("📌 Waiting for QR scan...")
-
-# Upload returned cloth image
-returned = st.file_uploader("Upload Returned Cloth Image", type=["jpg", "jpeg", "png"])
+import numpy as np
+from sklearn.metrics.pairwise import cosine_similarity
 
 # Load model
-@st.cache_resource
-def load_model():
-    model = models.resnet18()
-    model.fc = torch.nn.Linear(model.fc.in_features, 3)
-    model.load_state_dict(torch.load('models/resnet18_dummy.pth', map_location='cpu'))
-    model.eval()
-    return model
+model = torch.hub.load('pytorch/vision:v0.10.0', 'resnet18', pretrained=False)
+model.fc = torch.nn.Linear(model.fc.in_features, 3)
+model.load_state_dict(torch.load("models/resnet18_dummy.pth", map_location=torch.device('cpu')))
+model.eval()
 
-model = load_model()
+# Image preprocessing
+transform = transforms.Compose([
+    transforms.Resize((224, 224)),
+    transforms.ToTensor()
+])
 
-# Preprocess image
-def preprocess(img):
-    transform = transforms.Compose([
-        transforms.Resize((224, 224)),
-        transforms.ToTensor(),
-        transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                             std=[0.229, 0.224, 0.225])
-    ])
-    return transform(img).unsqueeze(0)
+# UI
+st.title("🧠 Cloth Verifier App")
+st.subheader("🔤 Enter Product ID")
+product_id = st.text_input("Product ID", placeholder="e.g. shirt123")
 
-# Compare embeddings
-def compare(img1, img2):
-    emb1 = model(preprocess(img1)).squeeze().detach().numpy()
-    emb2 = model(preprocess(img2)).squeeze().detach().numpy()
-    score = cosine_similarity([emb1], [emb2])[0][0] * 100
-    return score
+uploaded_file = st.file_uploader("📤 Upload Return Image", type=["jpg", "jpeg", "png"])
 
-# Run verification
-if qr_result and returned:
-    try:
-        original_path = f'products/{product_id}/image.jpg'
-        img1 = Image.open(original_path).convert('RGB')
-        img2 = Image.open(returned).convert('RGB')
+if uploaded_file and product_id:
+    # Load return image
+    return_img = Image.open(uploaded_file).convert("RGB")
+    return_tensor = transform(return_img).unsqueeze(0)
 
-        st.image([img1, img2], caption=["Original", "Returned"], width=250)
+    # Load original image
+    original_path = f"products/{product_id}/image.jpg"
+    if os.path.exists(original_path):
+        original_img = Image.open(original_path).convert("RGB")
+        original_tensor = transform(original_img).unsqueeze(0)
 
-        score = compare(img1, img2)
-        st.write(f"🔍 Similarity Score: **{score:.2f}%**")
+        # Extract embeddings
+        with torch.no_grad():
+            return_embed = model(return_tensor).numpy()
+            original_embed = model(original_tensor).numpy()
 
-        if score > 90:
-            decision = "✅ ORIGINAL"
-            st.success(decision)
-        elif score < 70:
-            decision = "❌ FAKE"
-            st.error(decision)
+        # Compare
+        similarity = cosine_similarity(return_embed, original_embed)[0][0]
+        st.write(f"🧮 Similarity Score: `{similarity:.2f}`")
+
+        if similarity > 0.8:
+            st.success("✅ Return Verified: Product matches original.")
         else:
-            decision = "⚠️ Manual Review"
-            st.warning(decision)
-
-        # Log result
-        log_path = 'logs/verification_log.csv'
-        os.makedirs('logs', exist_ok=True)
-        if not os.path.exists(log_path):
-            with open(log_path, 'w', newline='') as f:
-                writer = csv.writer(f)
-                writer.writerow(['Timestamp', 'Product ID', 'Similarity Score (%)', 'Decision'])
-
-        with open(log_path, 'a', newline='') as f:
-            writer = csv.writer(f)
-            writer.writerow([datetime.now().strftime('%Y-%m-%d %H:%M:%S'), product_id, f"{score:.2f}", decision])
-        st.info("📝 Verification result logged.")
-
-    except FileNotFoundError:
-        st.error("❌ Original image not found for this product ID.")
+            st.error("❌ Return Rejected: Product does not match.")
+    else:
+        st.warning("⚠️ Original product image not found.")
