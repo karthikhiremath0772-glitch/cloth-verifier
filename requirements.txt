@@ -1,0 +1,6 @@
+streamlit
+torch
+torchvision
+scikit-learn
+Pillow
+streamlit-qr-code-scanner
