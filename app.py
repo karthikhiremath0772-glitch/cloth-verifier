@@ -27,16 +27,18 @@ st.header("👤 Customer: Upload Product & Generate QR")
 product_id = st.text_input("Enter Product ID", placeholder="e.g. shirt123")
 product_img = st.file_uploader("Upload Product Image", type=["jpg", "jpeg", "png"], key="product")
 
-if product_id and product_img:
-    os.makedirs(f"products/{product_id}", exist_ok=True)
-    product_path = f"products/{product_id}/image.jpg"
+if product_id.strip() and product_img:
+    product_folder = f"products/{product_id}"
+    os.makedirs(product_folder, exist_ok=True)
+
+    product_path = f"{product_folder}/image.jpg"
     Image.open(product_img).save(product_path)
     st.success(f"✅ Product image saved for ID: {product_id}")
     st.image(product_path, caption="🧥 Uploaded Product Image")
 
     # Generate QR
     qr = qrcode.make(product_id)
-    qr_path = f"products/{product_id}/qr.png"
+    qr_path = f"{product_folder}/qr.png"
     qr.save(qr_path)
     st.image(qr_path, caption="📦 QR Code for Packaging")
 
@@ -46,7 +48,7 @@ st.header("🚚 Delivery: Upload Return & Verify")
 return_img = st.file_uploader("Upload Return Image", type=["jpg", "jpeg", "png"], key="return")
 verify_id = st.text_input("Scan or Enter QR Code (Product ID)", placeholder="e.g. shirt123", key="verify")
 
-if return_img and verify_id:
+if return_img and verify_id.strip():
     os.makedirs("returns", exist_ok=True)
     return_path = f"returns/{verify_id}_return.jpg"
     Image.open(return_img).save(return_path)
