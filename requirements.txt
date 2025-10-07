@@ -3,3 +3,4 @@ torch
 torchvision
 scikit-learn
 Pillow
+qrcode
