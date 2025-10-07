@@ -7,10 +7,9 @@ import qrcode
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 
-# Load model
-model = models.resnet18()
-model.fc = torch.nn.Linear(model.fc.in_features, 3)
-model.load_state_dict(torch.load("models/resnet18_dummy.pth", map_location='cpu'))
+# Load pretrained ResNet18 model
+model = models.resnet18(pretrained=True)
+model.fc = torch.nn.Identity()  # Use embeddings directly
 model.eval()
 
 # Image preprocessing
